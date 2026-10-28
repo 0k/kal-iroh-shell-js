@@ -1,0 +1,147 @@
+#+TITLE: @0k/kal-iroh-shell
+
+Page side of [[https://github.com/0k/kal-iroh-shell][kal-iroh-shell]]: the
+reload handshake run by the page (save what the user was doing, say
+when it is busy, restore focus after the reload), and the Vite plugin
+that publishes interface releases.
+
+* What it is
+
+An app built with kal-iroh-shell (a Tauri or GTK program with a
+WebView) shows the interface its server publishes, and reloads it the
+moment a new version is published.  The Rust shell, inside the app,
+follows the server's control stream; when a new release appears it
+asks the page to prepare, and the page answers through this package:
+
+1. the shell calls =window.__kalIrohShell.prepareReload(n)=;
+2. the page runs every save callback and answers =ready=, or =busy=
+   with a reason while the user is recording, uploading or sending; it
+   renews =busy= and turns =ready= as soon as it can;
+3. the shell reloads the view.  A page that does not answer within
+   5 s, or stops renewing =busy= for 30 s, is reloaded anyway;
+4. after the reload, the page puts the focus back in the field the user
+   was in.
+
+The Vite plugin turns a successful =vite build= into a release: it
+writes the build's =ui-manifest.json= and, given a publish directory,
+copies the build there as a frozen =<build-id>/= release and switches
+=current.json= to it, by renames.  A failed build publishes nothing.
+
+* Install
+
+#+begin_src sh
+npm install @0k/kal-iroh-shell
+#+end_src
+
+ES modules with type declarations.  The page kit
+(=@0k/kal-iroh-shell=) runs in the browser and requires =vue= 3.3 or
+later.  The plugin (=@0k/kal-iroh-shell/vite=) runs in Node, from
+=vite.config.ts=, and requires =vite= 5 to 8.
+
+* Usage
+
+** Build
+
+#+begin_src ts
+// vite.config.ts
+import vue from '@vitejs/plugin-vue';
+import { defineConfig } from 'vite';
+import { kalIrohShellRelease } from '@0k/kal-iroh-shell/vite';
+
+export default defineConfig({
+  plugins: [vue(), kalIrohShellRelease({ publishDir: process.env.MY_APP_PUBLISH_DIR })],
+});
+#+end_src
+
+List the plugin last (it is =enforce: 'post'=), and give each Vite
+config its own instance.  =vite build --watch= never publishes: every
+save would push a release to every device.  Without =publishDir= the
+build only gets its =ui-manifest.json= (to be embedded in the app as
+the fallback copy).
+
+What the plugin does to the build and to the publish directory:
+
+- It sets =base: './'=, so a release works under any path prefix.  An
+  app that sets its own =base= keeps it, with a warning: its releases
+  then only work under that prefix.
+- A relative =publishDir= is relative to Vite's =root=; =~/= is
+  expanded to the home directory; an empty one publishes nothing.  The
+  plugin refuses to publish into a directory that holds other files and
+  no =current.json= naming a build id.
+- It writes and publishes only once every plugin has finished writing
+  the build, files added while closing the bundle (a service worker)
+  included.  A build in which any plugin fails, or any output is not
+  written, publishes nothing.  SSR builds, library builds, watch mode
+  and builds that write no files are left alone: no manifest, no
+  publish.
+- It keeps the current release and the 5 newest others (=KEPT_RELEASES=),
+  for pages still running them, and deletes older releases and the
+  copies of interrupted publishes, after the switch: a failure there is
+  only a warning.  It deletes nothing else: a release is a directory
+  named by a build id whose =ui-manifest.json= names that build id.
+
+** Page
+
+#+begin_src ts
+import { installShellReload, restoreViewState, useShellBusy, useShellReloadSave } from '@0k/kal-iroh-shell';
+
+installShellReload();               // before mounting
+app.mount('#app');
+restoreViewState();                 // refocus the field the user was in
+
+// in components / composables:
+useShellReloadSave(() => flushDraft());
+useShellBusy('microphone on', () => recording.value);
+#+end_src
+
+* API
+
+** =@0k/kal-iroh-shell= (page)
+
+| Export                                  | What it does                                                                                   |
+|-----------------------------------------+------------------------------------------------------------------------------------------------|
+| =installShellReload()=                  | installs =window.__kalIrohShell=, which the shell calls, and saves the focused field before each reload; call it before mounting |
+| =restoreViewState()=                    | after a reload, puts the focus back in the field the user was in (retried for =RESTORE_FOCUS_MS=) |
+| =useShellReloadSave(fn)=                | in a component (any Vue scope): run =fn= before a reload, until the scope ends                 |
+| =useShellBusy(reason, active)=          | in a component (any Vue scope): answer =busy= with =reason= while =active()= is true            |
+| =onShellReloadSave(fn)=                 | same as =useShellReloadSave= outside a component; returns the function that unregisters it     |
+| =registerShellBusy(probe)=              | same as =useShellBusy= outside a component: =probe()= returns a reason or =null=; returns the function that unregisters it |
+| =prepareReload(n)=, =saveViewState()=   | the steps =installShellReload= wires to the shell's request =n=; exported for apps without it   |
+| =markBoot(phase)=, =uiSource()=, =uiBuild()= | boot timing marks sent to the shell, and the page's source (=remote= or =embedded=) and build id |
+| =BUSY_RENEW_MS=, =BUSY_CHECK_MS=, =RESTORE_FOCUS_MS=, =VIEW_STATE_KEY= | timings of the handshake, and the =sessionStorage= key of the saved view |
+| wire names (=RELOAD_ACK_PATH=, =PAGE_GLOBAL=, …) | paths, attributes and file names shared with the Rust shell                       |
+
+** =@0k/kal-iroh-shell/vite= (build)
+
+| Export                                         | What it does                                                    |
+|------------------------------------------------+-----------------------------------------------------------------|
+| =kalIrohShellRelease({ publishDir })=          | the Vite plugin                                                 |
+| =publishRelease(dist, publishDir)=             | publishes a build that holds its manifest; returns its build id |
+| =writeManifest(dist, id)=, =buildManifest(dist, id)= | writes / computes a build's =ui-manifest.json=            |
+| =pruneReleases(publishDir, keep)=, =readPointer(publishDir)=, =newBuildId()= | the steps of a publish, for custom pipelines |
+
+* Wire names
+
+=src/protocol.ts= holds the paths, attributes and file names shared
+with the Rust crate =kal-iroh-shell-protocol=.  =test/protocol.test.ts=
+compares them with a copy of that crate's =src/lib.rs= kept in
+=test/rust-protocol/= (=SOURCE= names the commit it comes from).  After
+a change of the Rust protocol, refresh the copy and fix this package
+until the test passes:
+
+#+begin_src sh
+npm run sync-protocol -- <kal-iroh-shell-checkout>
+npm run check
+#+end_src
+
+To try an unreleased change in an app, link the app's dependency to a
+checkout of this repository (=npm install= in the checkout first; it
+builds =dist/=, and =npm run build= rebuilds it after a change):
+
+#+begin_src sh
+cd <app-frontend> && npm link <kal-iroh-shell-js-checkout>
+#+end_src
+
+* License
+
+MIT
