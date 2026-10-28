@@ -50,7 +50,7 @@ interface releases.  See `README.org`.
 
 ## Delivery
 
-Published to npm as `@0k/kal-iroh-shell`;
+Published to npm as `@0k/kal-iroh-shell` with `pkg`, from a git tag;
 consumers depend on an exact published version.  An unreleased change is
 tried in a consumer through an uncommitted local override (`npm link`
 to this checkout), never by bumping the version.

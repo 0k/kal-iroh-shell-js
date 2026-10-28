@@ -1,0 +1,6 @@
+NAME="@0k/kal-iroh-shell"
+DESCRIPTION="Page kit of kal-iroh-shell: the page side of the reload handshake, and the Vite plugin that publishes interface releases."
+EMAIL="valentin.lab@kalysto.org"
+AUTHOR="Valentin Lab"
+AUTHOR_EMAIL="$AUTHOR <$EMAIL>"
+FILES="package.json package-lock.json"

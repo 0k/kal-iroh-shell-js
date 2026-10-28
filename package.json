@@ -1,9 +1,28 @@
 {
   "name": "@0k/kal-iroh-shell",
-  "version": "0.1.0",
+  "version": "%%version%%",
   "description": "Page kit of kal-iroh-shell: the page side of the reload handshake, and the Vite plugin that publishes interface releases.",
+  "keywords": [
+    "vite",
+    "vue",
+    "webview",
+    "tauri",
+    "hot-reload",
+    "iroh"
+  ],
   "license": "MIT",
   "author": "Valentin Lab <valentin.lab@kalysto.org>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0k/kal-iroh-shell-js.git"
+  },
+  "homepage": "https://github.com/0k/kal-iroh-shell-js",
+  "bugs": {
+    "url": "https://github.com/0k/kal-iroh-shell-js/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -18,7 +37,7 @@
   },
   "files": [
     "dist",
-    "README.org",
+    "README.md",
     "LICENSE"
   ],
   "scripts": {

@@ -2,4 +2,7 @@
 /*.tgz
 AGENTS.local.md
 CLAUDE.local.md
+/README.md
+/.pkg/
+/.package.d/announcements.yaml
 /dist
