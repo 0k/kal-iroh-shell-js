@@ -133,7 +133,8 @@ function cssPath(el: Element): string {
     }
     const parent: Element | null = node.parentElement;
     const index = parent ? Array.prototype.indexOf.call(parent.children, node) + 1 : 1;
-    parts.unshift(`${node.tagName.toLowerCase()}:nth-child(${index})`);
+    // `localName` keeps the case SVG elements are matched by (`foreignObject`).
+    parts.unshift(`${CSS.escape(node.localName)}:nth-child(${index})`);
     node = parent;
   }
   if (node === document.body) parts.unshift('body');

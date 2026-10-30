@@ -13,8 +13,14 @@ function acks(fetchMock: ReturnType<typeof vi.fn>): unknown[] {
     .map(([, init]) => JSON.parse((init as RequestInit).body as string));
 }
 
+/** `CSS.escape`, which browsers have and jsdom lacks (enough for these tests). */
+function cssEscape(value: string): string {
+  return value.replace(/^\d/, digit => `\\3${digit} `).replace(/[^\w-]/g, char => `\\${char}`);
+}
+
 let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
+  vi.stubGlobal('CSS', { escape: cssEscape });
   vi.useFakeTimers();
   fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
   vi.stubGlobal('fetch', fetchMock);
@@ -82,6 +88,20 @@ describe('shell reload handshake (page side)', () => {
 
   it('refocuses the field itself, not an earlier field nested the same way', () => {
     const page = '<section><p></p><div><input class="decoy"></div></section><div><input class="field"></div>';
+    document.body.innerHTML = page;
+    document.querySelector<HTMLInputElement>('.field')!.focus();
+
+    saveViewState();
+    document.body.innerHTML = page;
+    restoreViewState();
+
+    expect(document.activeElement).toBe(document.querySelector('.field'));
+  });
+
+  it.each([
+    ['inside an SVG foreignObject', '<svg><foreignObject><input class="field"></foreignObject></svg>'],
+    ['inside a custom element with a dot in its name', '<x-a.b><input class="field"></x-a.b>'],
+  ])('refocuses a field %s', (_, page) => {
     document.body.innerHTML = page;
     document.querySelector<HTMLInputElement>('.field')!.focus();
 
