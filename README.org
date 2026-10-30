@@ -119,6 +119,9 @@ useShellBusy('microphone on', () => recording.value);
 | =publishRelease(dist, publishDir)=             | publishes a build that holds its manifest; returns its build id |
 | =writeManifest(dist, id)=, =buildManifest(dist, id)= | writes / computes a build's =ui-manifest.json=            |
 | =pruneReleases(publishDir, keep)=, =readPointer(publishDir)=, =newBuildId()= | the steps of a publish, for custom pipelines |
+| =MANIFEST_FILE=, =POINTER_FILE=                | the file names =ui-manifest.json= (in each release) and =current.json= (in =publishDir=) |
+| =KEPT_RELEASES=                                | the number of releases kept besides the current one (5)         |
+| types =KalIrohShellReleaseOptions=, =UiManifest=, =ManifestEntry=, =UiPointer= | the plugin's options, and the shapes of =ui-manifest.json= and =current.json= |
 
 * Wire names
 
