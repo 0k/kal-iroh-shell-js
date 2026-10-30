@@ -1,5 +1,7 @@
 // @vitest-environment node
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -55,6 +57,26 @@ describe('ui release publishing', () => {
 
     expect(readPointer(publish)?.build_id).toBe('20261023T000001-bbbbbb');
     expect(readFileSync(join(publish, '20261023T000000-aaaaaa', 'assets', 'main.js'), 'utf8')).toBe('old');
+  });
+
+  it('freezes the content of a symlinked file, not a link back into the build', () => {
+    const dist = tempDir();
+    writeFileSync(join(dist, 'main.js'), 'v1');
+    symlinkSync('main.js', join(dist, 'alias.js'));
+    writeManifest(dist, '20261023T000000-aaaaaa');
+    const publish = tempDir();
+    const id = publishRelease(dist, publish);
+
+    writeFileSync(join(dist, 'main.js'), 'v2');
+
+    expect(readFileSync(join(publish, id, 'alias.js'), 'utf8')).toBe('v1');
+  });
+
+  it('refuses a publish directory inside the build, leaving the build as it was', () => {
+    const dist = fakeBuild('20261023T000000-aaaaaa');
+
+    expect(() => publishRelease(dist, join(dist, 'releases'))).toThrow(/inside the build directory/);
+    expect(readdirSync(dist).sort()).toEqual(['assets', 'index.html', MANIFEST_FILE].sort());
   });
 
   it('refuses to overwrite a release that is already published', () => {

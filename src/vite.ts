@@ -19,11 +19,11 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import {
-  cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync,
+  copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync,
   rmSync, writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, relative, resolve, sep } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { Logger, Plugin, ResolvedConfig } from 'vite';
 import { MANIFEST_FILE, POINTER_FILE } from './protocol.js';
 
@@ -56,6 +56,20 @@ function walk(dir: string): string[] {
     const full = join(dir, entry.name);
     return entry.isDirectory() ? walk(full) : [full];
   });
+}
+
+/**
+ * Copy the files `walk` lists, by content: a symlink in `src` becomes a
+ * copy of the file it points to, so the copy never changes with `src`.
+ */
+function copyTree(src: string, dst: string): void {
+  mkdirSync(dst, { recursive: true });
+  for (const entry of readdirSync(src, { withFileTypes: true })) {
+    const from = join(src, entry.name);
+    const to = join(dst, entry.name);
+    if (entry.isDirectory()) copyTree(from, to);
+    else copyFileSync(from, to);
+  }
 }
 
 /** Manifest of every file under `dist`, the manifest itself excluded. */
@@ -125,9 +139,10 @@ function isRelease(publishDir: string, name: string): boolean {
 /**
  * Publish the build in `dist` (which must hold its manifest) and make it
  * current.  Returns the build id.  Fails, publishing nothing, when the
- * manifest is missing, the release already exists, `publishDir` is not a
- * publish directory (it holds other files, and no `current.json` naming a
- * build id), or the copy does not match the manifest.
+ * manifest is missing, the release already exists, `publishDir` is inside
+ * `dist` or is not a publish directory (it holds other files, and no
+ * `current.json` naming a build id), or the copy does not match the
+ * manifest.
  *
  * Once `current.json` is switched, the release is published: pruning the
  * old ones is then best effort, and its failure is only reported to `warn`.
@@ -138,6 +153,10 @@ export function publishRelease(
   now: Date = new Date(),
   warn: (message: string) => void = message => console.warn(message),
 ): string {
+  const inDist = relative(resolve(dist), resolve(publishDir));
+  if (inDist === '' || (inDist !== '..' && !inDist.startsWith(`..${sep}`) && !isAbsolute(inDist))) {
+    throw new Error(`${publishDir} is inside the build directory ${dist}: a release cannot be copied into itself`);
+  }
   const manifest = JSON.parse(readFileSync(join(dist, MANIFEST_FILE), 'utf8')) as UiManifest;
   const id = manifest.build_id;
   if (!BUILD_ID_RE.test(id)) throw new Error(`invalid build id in manifest: ${id}`);
@@ -149,7 +168,7 @@ export function publishRelease(
   if (existsSync(target)) throw new Error(`release ${id} is already published`);
   const partial = join(publishDir, `.partial-${id}`);
   rmSync(partial, { recursive: true, force: true });
-  cpSync(dist, partial, { recursive: true });
+  copyTree(dist, partial);
   // Another publisher's pruning may have removed files under our feet.
   const copied = buildManifest(partial, id).files;
   if (JSON.stringify(copied) !== JSON.stringify(manifest.files)) {
