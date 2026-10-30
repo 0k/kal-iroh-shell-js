@@ -110,6 +110,7 @@ useShellBusy('microphone on', () => recording.value);
 | =markBoot(phase)=, =uiSource()=, =uiBuild()= | boot timing marks sent to the shell, and the page's source (=remote= or =embedded=) and build id |
 | =BUSY_RENEW_MS=, =BUSY_CHECK_MS=, =RESTORE_FOCUS_MS=, =VIEW_STATE_KEY= | timings of the handshake, and the =sessionStorage= key of the saved view |
 | wire names (=RELOAD_ACK_PATH=, =PAGE_GLOBAL=, …) | paths, attributes and file names shared with the Rust shell                       |
+| types =BusyProbe=, =ReloadAck=          | a busy probe (returns a reason, or =null= when not busy), and the page's answer to the shell (=ready=, or =busy= with a reason) |
 
 ** =@0k/kal-iroh-shell/vite= (build)
 
