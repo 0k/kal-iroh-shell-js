@@ -79,6 +79,19 @@ describe('shell reload handshake (page side)', () => {
     expect(document.activeElement).toBe(after);
     expect([after.selectionStart, after.selectionEnd]).toEqual([6, 11]);
   });
+
+  it('refocuses the field itself, not an earlier field nested the same way', () => {
+    const page = '<section><p></p><div><input class="decoy"></div></section><div><input class="field"></div>';
+    document.body.innerHTML = page;
+    document.querySelector<HTMLInputElement>('.field')!.focus();
+
+    saveViewState();
+    document.body.innerHTML = page;
+    restoreViewState();
+
+    expect(document.activeElement).toBe(document.querySelector('.field'));
+  });
+
   it('does not wait on a busy probe that throws: it counts as not busy', () => {
     registerShellBusy(() => { throw new Error('a broken probe'); });
     const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);

@@ -119,7 +119,10 @@ export function prepareReload(request: number): void {
   active = { request, check };
 }
 
-/** CSS path of `el` from `body`: its id when it has one, else positions. */
+/**
+ * CSS path of `el`: from its nearest ancestor with an id, else from
+ * `body`, so that it names this one element and no earlier look-alike.
+ */
 function cssPath(el: Element): string {
   const parts: string[] = [];
   let node: Element | null = el;
@@ -133,6 +136,7 @@ function cssPath(el: Element): string {
     parts.unshift(`${node.tagName.toLowerCase()}:nth-child(${index})`);
     node = parent;
   }
+  if (node === document.body) parts.unshift('body');
   return parts.join(' > ');
 }
 
